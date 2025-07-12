@@ -1,0 +1,19 @@
+# Template for local.settings.json
+# Copy this file to local.settings.json and update the values
+
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "AZURE_CLIENT_ID": "your-client-id-here",
+    "AZURE_TENANT_ID": "your-tenant-id-here",
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "your-app-insights-connection-string-here"
+  }
+}
+
+# Instructions:
+# 1. Copy this file to local.settings.json
+# 2. Replace the placeholder values with your actual Azure configuration
+# 3. For local development, ensure you're signed in to Azure CLI or Visual Studio
+# 4. The function will use DefaultAzureCredential for authentication
