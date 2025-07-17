@@ -22,11 +22,28 @@ public class GraphService : IGraphService
     {
         _logger = logger;
 
-        // Use Managed Identity for authentication
-        var credential = new DefaultAzureCredential();
+        // Get the client ID from environment variable
+        var clientId = Environment.GetEnvironmentVariable("AZURE_CLIENT_ID");
+        
+        DefaultAzureCredential credential;
+        if (string.IsNullOrEmpty(clientId))
+        {
+            _logger.LogInformation("AZURE_CLIENT_ID not set, using default managed identity");
+            credential = new DefaultAzureCredential();
+        }
+        else
+        {
+            _logger.LogInformation("Using managed identity with client ID: {ClientId}", clientId);
+            credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
+            {
+                ManagedIdentityClientId = clientId
+            });
+        }
 
         // Create Graph client with managed identity
         _graphClient = new GraphServiceClient(credential);
+        
+        _logger.LogInformation("GraphServiceClient initialized");
     }
 
     /// <summary>
@@ -38,27 +55,46 @@ public class GraphService : IGraphService
     {
         try
         {
-            _logger.LogInformation("Retrieving app registration details for app ID: {AppId}", appId);
+            _logger.LogInformation("Retrieving app registration details for input: {AppId}", appId);
 
-            // Get the application
-            var allApps = await _graphClient.Applications.GetAsync();
-            var application = await _graphClient.Applications[appId].GetAsync();
+            // Try to get the application using a filter approach
+            var applicationsResponse = await _graphClient.Applications.GetAsync(requestConfiguration =>
+            {
+                // Try to determine if the input is an Object ID (GUID format) or App ID
+                if (Guid.TryParse(appId, out var guid))
+                {
+                    // If it's a valid GUID, try both id (Object ID) and appId filters
+                    requestConfiguration.QueryParameters.Filter = $"id eq '{appId}' or appId eq '{appId}'";
+                    _logger.LogInformation("Searching for application using both Object ID and App ID filters for: {AppId}", appId);
+                }
+                else
+                {
+                    // If it's not a GUID, assume it's an App ID
+                    requestConfiguration.QueryParameters.Filter = $"appId eq '{appId}'";
+                    _logger.LogInformation("Searching for application using App ID filter for: {AppId}", appId);
+                }
+                requestConfiguration.QueryParameters.Select = new string[] { "id", "appId", "displayName", "createdDateTime", "passwordCredentials" };
+            });
 
+            var application = applicationsResponse?.Value?.FirstOrDefault();
             if (application == null)
             {
-                throw new InvalidOperationException($"Application with ID {appId} not found");
+                throw new InvalidOperationException($"Application with input '{appId}' not found. Note: You can provide either an App ID (Application ID) or Object ID.");
             }
+
+            _logger.LogInformation("Successfully found application: {DisplayName} (Object ID: {ObjectId}, App ID: {FoundAppId})", 
+                application.DisplayName, application.Id, application.AppId);
 
             // Get password credentials (secrets)
             var secrets = application.PasswordCredentials?.Select(pc => new SecretInfo
             {
                 KeyId = pc.KeyId?.ToString() ?? string.Empty,
                 DisplayName = pc.DisplayName ?? "No display name",
-                EndDateTime = pc.EndDateTime?.DateTime,
-                StartDateTime = pc.StartDateTime?.DateTime,
-                IsExpired = pc.EndDateTime?.DateTime < DateTime.UtcNow,
-                DaysUntilExpiration = pc.EndDateTime?.DateTime != null
-                    ? (int)(pc.EndDateTime.Value.DateTime - DateTime.UtcNow).TotalDays
+                EndDateTime = pc.EndDateTime,
+                StartDateTime = pc.StartDateTime,
+                IsExpired = pc.EndDateTime.HasValue && pc.EndDateTime.Value < DateTimeOffset.UtcNow,
+                DaysUntilExpiration = pc.EndDateTime.HasValue
+                    ? (int?)(pc.EndDateTime.Value - DateTimeOffset.UtcNow).TotalDays
                     : null
             }).ToList() ?? new List<SecretInfo>();
 
@@ -66,7 +102,7 @@ public class GraphService : IGraphService
             {
                 AppId = application.AppId ?? string.Empty,
                 DisplayName = application.DisplayName ?? string.Empty,
-                CreatedDateTime = application.CreatedDateTime?.DateTime,
+                CreatedDateTime = application.CreatedDateTime,
                 Secrets = secrets
             };
 
@@ -75,7 +111,7 @@ public class GraphService : IGraphService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving app registration details for app ID: {AppId}", appId);
+            _logger.LogError(ex, "Error retrieving app registration details for input: {AppId}", appId);
             throw;
         }
     }
@@ -88,7 +124,7 @@ public class AppRegistrationInfo
 {
     public string AppId { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
-    public DateTime? CreatedDateTime { get; set; }
+    public DateTimeOffset? CreatedDateTime { get; set; }
     public List<SecretInfo> Secrets { get; set; } = new();
 }
 
@@ -99,8 +135,8 @@ public class SecretInfo
 {
     public string KeyId { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
-    public DateTime? StartDateTime { get; set; }
-    public DateTime? EndDateTime { get; set; }
+    public DateTimeOffset? StartDateTime { get; set; }
+    public DateTimeOffset? EndDateTime { get; set; }
     public bool IsExpired { get; set; }
     public int? DaysUntilExpiration { get; set; }
 }

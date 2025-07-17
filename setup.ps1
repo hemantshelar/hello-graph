@@ -73,9 +73,14 @@ try {
 Write-Host "`nSetup complete! Next steps:" -ForegroundColor Green
 Write-Host "1. Update local.settings.json with your Azure configuration" -ForegroundColor Cyan
 Write-Host "2. Ensure you have the required Graph API permissions" -ForegroundColor Cyan
-Write-Host "3. Run 'func start' to start the function app locally" -ForegroundColor Cyan
-Write-Host "4. Test the endpoints using the examples in TESTING.md" -ForegroundColor Cyan
+Write-Host "3. Assign Graph permissions to your managed identity (see assign-graph-permissions.ps1)" -ForegroundColor Cyan
+Write-Host "4. Run 'func start' to start the function app locally" -ForegroundColor Cyan
+Write-Host "5. Test the endpoints using the examples in TESTING.md" -ForegroundColor Cyan
 
 Write-Host "`nRequired Graph API permissions:" -ForegroundColor Yellow
 Write-Host "- Application.Read.All" -ForegroundColor White
 Write-Host "- Directory.Read.All" -ForegroundColor White
+
+Write-Host "`nTo assign Graph permissions to your managed identity:" -ForegroundColor Yellow
+Write-Host "Run: .\assign-graph-permissions.ps1 -ManagedIdentityName 'umi-asmp' -ResourceGroupName '<your-rg>'" -ForegroundColor Cyan
+Write-Host "Or follow the step-by-step guide: .\assign-permissions-guide.ps1" -ForegroundColor Cyan

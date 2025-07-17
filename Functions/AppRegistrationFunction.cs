@@ -27,7 +27,7 @@ public class AppRegistrationFunction
     /// </summary>
     [Function("GetAppRegistration")]
     public async Task<HttpResponseData> GetAppRegistration(
-        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "app-registration")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "app-registration")] HttpRequestData req)
     {
         _logger.LogInformation("HTTP trigger function GetAppRegistration processed a request");
 
