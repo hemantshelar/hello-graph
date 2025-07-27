@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: hello-graph
+metadata:
+  template: hello-graph@0.0.1-beta
+
+# Infra Configuration
+infra:
+  provider: bicep
+  path: infra
+
+# Service Configuration
+services:
+  HelloGraphFunction:
+    project: .
+    language: dotnet
+    host: function
